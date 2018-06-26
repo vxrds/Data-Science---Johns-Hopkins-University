@@ -1,0 +1,95 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Vijay Ramanujam"
+date: "February 19, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+### Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit, it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+
+In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). The goal of our project is to predict the manner in which they did the exercise. More information can be found here -  http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises
+
+### Getting and Cleaning Data
+```{r lib, message=FALSE, warning=FALSE}
+# Load required libraries
+library(lattice)
+library(ggplot2)
+library(caret)
+library(rattle)
+
+set.seed(180219)
+```
+```{r load}
+# Load data from given URLs
+#sURLTrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+#sURLTest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+sWD <- paste("Z:/F/Data Science/Coursera", "Johns Hopkins - Data Science", 
+             "8. Practical Machine Learning/W4", sep="/")
+sURLTrain <- paste(sWD, "pml-training.csv", sep="/")
+sURLTest <- paste(sWD, "pml-testing.csv", sep="/")
+
+dfTrain <- read.csv(sURLTrain, na.strings=c("NA", "#DIV/0!", ""), header = TRUE)
+dfTest <- read.csv(sURLTest, na.strings=c("NA", "#DIV/0!", ""), header = TRUE)
+```
+The training dataset has 19622 observations and 160 variables. The test dataset has 20 observations and 160 variables. Let's remove first 6 columns from both datasets since they don't have any significant predicting power.
+```{r clean1}
+# First 6 columns can be removed safely
+dfTrain <- dfTrain[, -c(1:6)]
+dfTest <- dfTest[, -c(1:6)]
+```
+We are left with 154 variables. nearZeroVar is an internal function in the PLS methods, that is used when the data contain a lot of zero values and need to be prefiltered beforehand. Running this function will further clean up our datasets.
+```{r clean2}
+# Remove columns with a lot of zero values
+nzvCols <- nearZeroVar(dfTrain)
+dfTrain <- dfTrain[, -nzvCols]
+dfTest <- dfTest[, -nzvCols]
+```
+```{r clean3}
+# Remove columns with at least 95% missing values
+oNA <- sapply(dfTrain, function(x) mean(is.na(x))) > 0.95
+dfTrain <- dfTrain[, oNA == FALSE]
+dfTest <- dfTest[, oNA == FALSE]
+```
+Now, we are down to 54 columns and 19622 rows.<br/><br/>
+
+### Partition the dataset
+```{r partition}
+inTrain <- createDataPartition(dfTrain$classe, p = 0.7, list = FALSE)
+datTrain <- dfTrain[inTrain, ]
+datTest <- dfTrain[-inTrain, ]
+```
+
+### Algorithmic Prediction using Random Forest
+
+Random forest method will be applied to model the regressions in the training dataset to choose the fit which will then be used for the quiz predictions later. 
+A Confusion Matrix is plotted at the end of random forest to better visualize the accuracy.
+```{r rf}
+fitRF <- train(classe ~ ., data = datTrain, method = "rf", 
+               trControl = trainControl(method = "cv", number = 5))
+fitRF$finalModel
+```
+```{r rfpredict}
+# Prediction using validation dataset
+pRF <- predict(fitRF, datTest)
+cmRF <- confusionMatrix(datTest$classe, pRF)
+
+# Plot results
+plot(cmRF$table, col = cmRF$byClass, 
+     main = paste("Random Forest - Prediction Accuracy =", 
+                  round(cmRF$overall['Accuracy'], 4)))
+```
+
+The accuracy rate is very high, 0.9978, and the out of sample error rate is 0.0022. This is a possibility when many predictors are significantly correlated even though the algorithm is capable of decorrelating the trees when subsetting the predictors at each split. This might lead to higher accuracy but a bit difficult to interpret in some situations.
+
+### Prediction on 20 test cases
+```{r predictest}
+# Prediction using test cases
+pTest <- predict(fitRF, newdata = dfTest)
+pTest
+```
+
+<br/><br/>This concludes the assignment.

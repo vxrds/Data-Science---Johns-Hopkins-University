@@ -1,0 +1,117 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+<!-- Z:\Z\Coursera Data Science\Github\RepData_PeerAssessment1 -->
+
+## Loading and preprocessing the data
+```{r}
+data <- read.csv("./activity.csv")
+data1 <- data[!is.na(data$steps), c("steps","date")]
+```
+
+#### Histogram of the total number of steps taken each day
+```{r}
+data2 <- aggregate(steps~date, data=data1, FUN = sum)
+hist(data2$steps, 20, main = "Total number of steps taken each day", xlab="Steps", ylab="", col="blue")
+```
+
+```{r echo=FALSE,results='hide'}
+dev.copy(png, file="./figures/plot1.png", width=480, height=480, units="px")
+dev.off()
+```
+
+
+## What is mean total number of steps taken per day?
+```{r}
+mean(data2$steps)
+median(data2$steps)
+```
+
+
+## What is the average daily activity pattern?
+```{r}
+data4 <- aggregate(steps ~ interval, data, mean, rm.na = TRUE)
+plot(data4$interval, data4$steps, type = "l", axes=F, xlab = "Time interval", ylab="Avg. Steps", main = "Average number of steps taken by 5-minute interval")
+axis(1, labels = c('0:00', '5:00', '10:00', '15:00', '20:00', '23:55'), at = c(0, 500, 1000, 1500, 2000, 2355))
+axis(2)
+```
+
+```{r echo=FALSE,results='hide'}
+dev.copy(png, file="./figures/plot2.png", width=480, height=480, units="px")
+dev.off()
+```
+
+#### The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+data4[which.max(data4$steps),"interval"]
+```
+
+
+## Imputing missing values
+```{r}
+# Missing values
+sum(is.na(data$steps))
+
+# Fill the missing values with 5-minute interval mean
+data6 <- data
+for (i in 1:nrow(data6))
+{
+    if (is.na(data6$steps[i]))
+    {
+        data6$steps[i] <- data4[(data4$interval==data6$interval[i]),2]
+    }
+}
+
+# See the differences. Not much, except 3rd quartile
+summary(data)
+summary(data6)
+```
+
+#### Histogram of the total number of steps taken each day after missing values are imputed
+```{r}
+data7 <- aggregate(steps~date, data=data6, FUN = sum)
+hist(data7$steps, 20, main = "Total number of steps taken each day", xlab="Steps", ylab="", col="green")
+```
+
+```{r echo=FALSE,results='hide'}
+dev.copy(png, file="./figures/plot3.png", width=480, height=480, units="px")
+dev.off()
+```
+
+#### Mean and median values
+```{r}
+mean(data7$steps)
+median(data7$steps)
+```
+##### Imputing missing values has no effect on the Mean but the median value is converging to the mean value
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+data8 <- data6
+# Get day names
+data8$dayCategory <- weekdays(as.Date(data8$date))
+# Identify weekdays/weekends
+data8$dayCategory <- ifelse(data8$dayCategory %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+# Calculate averages
+data8 <- aggregate(steps ~ dayCategory + interval, data8, mean)
+data8$dayCategory <- as.factor(data8$dayCategory)
+# Plot the data
+library(ggplot2)
+plot <- ggplot(data8, aes(interval, steps, group = dayCategory))
+plot + 
+    geom_line() + 
+    geom_line() + 
+    facet_grid(dayCategory ~ .) + 
+    scale_x_discrete(limit = c(0, 500, 1000, 1500, 2000, 2355), labels = c('0:00', '5:00', '10:00', '15:00', '20:00', '23:55')) + 
+    labs(x="Interval", y="Steps", title="Avg. steps taken per 5-minute interval across weekdays and weekends")
+```
+
+```{r echo=FALSE,results='hide'}
+dev.copy(png, file="./figures/plot4.png", width=480, height=480, units="px")
+dev.off()
+```

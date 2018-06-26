@@ -1,0 +1,176 @@
+---
+title: "Storm Data Analysis - Harmful Events and Economic Consequences"
+author: "Vijay Ramanujam"
+date: "September 24, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = TRUE)
+```
+
+<br/>
+
+## Synopsis
+
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+The analysis answers 2 key questions.
+
+1. Across the United States, which types of events are most harmful with respect to population health?
+
+2. Across the United States, which types of events have the greatest economic consequences?
+
+<br/>
+
+## Data Processing
+
+#### 1. Define variables used
+```{r}
+# URL & filenames
+sURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+sZipFile <- "StormData.csv.bz2"
+sCSVFile <- "StormData.csv"
+
+# UOMs
+K <- 10^3
+M <- 10^6
+B <- 10^9
+```
+
+#### 2. Download the compressed file, if not downloaded already.
+```{r}
+if(!file.exists(sZipFile))
+{
+    download.file(sURL, sZipFile, mode = "wb")
+}
+```
+
+#### 3. Uncompress .csv, if not done already
+```{r}
+if (file.exists(sCSVFile) == FALSE)
+{
+    library(R.utils)
+    bunzip2(sZipFile, sCSVFile)
+}
+```
+
+#### 4. Read csv file and load data
+```{r}
+data <- read.csv(sCSVFile, header = TRUE)
+```
+
+#### 5. Filter the columns necessary for this analysis. i.e.  "EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", and "CROPDMGEXP"
+```{r}
+tidy <- data[, c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
+```
+
+#### 6. Transform property damages to $
+```{r}
+tidy$PropertyDamages <- 0
+tidy[tidy$PROPDMGEXP=="K",]$PropertyDamages = tidy[tidy$PROPDMGEXP=="K",]$PROPDMG * K
+tidy[tidy$PROPDMGEXP=="M",]$PropertyDamages = tidy[tidy$PROPDMGEXP=="M",]$PROPDMG * M
+tidy[tidy$PROPDMGEXP=="B",]$PropertyDamages = tidy[tidy$PROPDMGEXP=="B",]$PROPDMG * B
+```
+
+#### 7. Transform crop damages to $
+```{r}
+tidy$CropDamages <- 0
+tidy[tidy$CROPDMGEXP=="K",]$CropDamages = tidy[tidy$CROPDMGEXP=="K",]$CROPDMG * K
+tidy[tidy$CROPDMGEXP=="M",]$CropDamages = tidy[tidy$CROPDMGEXP=="M",]$CROPDMG * M
+tidy[tidy$CROPDMGEXP=="B",]$CropDamages = tidy[tidy$CROPDMGEXP=="B",]$CROPDMG * B
+```
+
+#### 8. Remove rows with no fatalities/injuries/damages
+```{r}
+tidy<-tidy[tidy$FATALITIES+tidy$INJURIES+tidy$PropertyDamages+tidy$CropDamages>0,c("EVTYPE","FATALITIES","INJURIES","PropertyDamages","CropDamages")]
+tidy$EVTYPE <- toupper(tidy$EVTYPE)
+```
+
+#### 9. Convert damages into billions
+```{r}
+tidy$PropertyDamages <- tidy$PropertyDamages/B
+tidy$CropDamages <- tidy$CropDamages/B
+```
+
+#### 10. Get summary data by event for plotting
+```{r}
+tidy$EVTYPE <- toupper(tidy$EVTYPE)
+plotdata <- aggregate(cbind(FATALITIES, INJURIES, PropertyDamages, CropDamages)~EVTYPE, data=tidy, sum)
+```
+
+<br/><br/>
+
+## Results
+
+<font color="blue"><b>
+Top 10 events across the United States that are most harmful with respect to population health
+</b></font>
+
+<b><u>a) Fatalities</u></b>
+```{r}
+fatalities <- aggregate(FATALITIES ~ EVTYPE, data=plotdata, sum)
+fatalities <- fatalities[order(-fatalities$FATALITIES), ][1:10, ]
+fatalities$EVTYPE <- factor(fatalities$EVTYPE, levels = fatalities$EVTYPE)
+fatalities
+```
+
+####
+```{r}
+library(ggplot2)
+ggplot(fatalities, aes(x = EVTYPE, y = FATALITIES)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+    ggtitle("Fatalities by top 10 Weather Events") + 
+    xlab("Event") + ylab("Fatalities")
+```
+<br/>
+<font color="green">It is very clear from the plot that "Tornado" causes the most amount of fatalities.</font>
+<br/><br/>
+
+<b><u>b) Injuries</u></b>
+```{r}
+injuries <- aggregate(INJURIES ~ EVTYPE, data=plotdata, sum)
+injuries <- injuries[order(-injuries$INJURIES), ][1:10, ]
+injuries$EVTYPE <- factor(injuries$EVTYPE, levels = injuries$EVTYPE)
+injuries
+```
+
+####
+```{r}
+ggplot(injuries, aes(x = EVTYPE, y = INJURIES)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+    ggtitle("Injuries by top 10 Weather Events") + 
+    xlab("Event") + ylab("Injuries")
+```
+<br/>
+<font color="green">It is very clear from the plot that "Tornado" causes the most amount of injures as well.</font>
+
+<br/>
+<br/>
+
+<font color="blue"><b>
+Top 10 events across the United States that have the greatest economic consequences
+</b></font>
+
+```{r}
+damages <- aggregate(PropertyDamages+CropDamages ~ EVTYPE, data=plotdata, sum)
+names(damages) <- c("EVTYPE","TotalDamages")
+damages <- damages[order(-damages$TotalDamages), ][1:10, ]
+damages$EVTYPE <- factor(damages$EVTYPE, levels = damages$EVTYPE)
+damages
+```
+
+```{r}
+ggplot(damages, aes(x = EVTYPE, y = TotalDamages)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+    ggtitle("Total Damages by top 10 Weather Events") + 
+    xlab("Event") + ylab("Damages (billions of $)")
+```
+<br/>
+<font color="green">It is very clear from the plot that "Flood" causes the most amount of economic consequences in the form of property and crop damages.</font>

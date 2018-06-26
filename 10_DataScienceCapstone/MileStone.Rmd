@@ -1,0 +1,162 @@
+---
+title: "Data Science Capstone - Milestone Report"
+author: "Vijay Ramanujam"
+date: "April 8, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+The first step in building a predictive model for text is understanding the distribution and relationship between the words, tokens, and phrases in the text. The goal of this report is to understand the basic relationships we observe in the data and prepare to build our first linguistic model.
+
+<u>Tasks to accomplish</u>
+
+<b>Exploratory analysis</b> - perform a thorough exploratory analysis of the data, understanding the distribution of words and relationship between the words in the corpora.
+
+<b>Understand frequencies of words and word pairs</b> - build figures and tables to understand variation in the frequencies of words and word pairs in the data.
+
+
+In the interest of keeping this report simple and concise, all R code chunks have been hidden. If you are interested, you may see the rmd file <a href="https://github.com/vxrds/DataScience-JHU/blob/master/10_DataScienceCapstone/MileStone.Rmd">here</a>
+
+
+## Summary Data
+The training data is downloaded from <a href="https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip">here</a> and is unzipped manually, to speed up the process. It has three files containing sample data from twitter, blogs and news. Here is the summary.
+
+```{r summary, echo=FALSE, warning=FALSE, message=FALSE}
+library(tm)
+library(quanteda)
+library(stringi)
+library(wordcloud)
+library(ggplot2)
+library(stringr)
+library(RColorBrewer)
+
+set.seed(2174)
+MB <- 1024 ^ 2
+setwd("Z:/F/Data Science/Coursera/JHU/10. Data Science Capstone/SwiftKey")
+Line_Count <- c()
+Word_Count <- c()
+
+# Read files
+oFile <- file("en_US.twitter.txt", "r")
+sText <- readLines(oFile, skipNul=TRUE)
+Line_Count <- append(Line_Count, length(sText))
+Word_Count <- append(Word_Count, sum(stri_count_words(sText)))
+# 1% random sample of lines
+sCorpusText <- sText[ceiling(runif((Line_Count[1] * 0.01), 1, Line_Count[1]))]
+close(oFile)
+invisible(gc())
+
+oFile <- file("en_US.blogs.txt", "r")
+sText <- readLines(oFile, skipNul=TRUE)
+Line_Count <- append(Line_Count, length(sText))
+Word_Count <- append(Word_Count, sum(stri_count_words(sText)))
+# 1% random sample of lines
+sCorpusText <- append(sCorpusText, sText[ceiling(runif((Line_Count[1] * 0.01), 1, Line_Count[1]))])
+close(oFile)
+invisible(gc())
+
+oFile <- file("en_US.news.txt", "rb")
+sText <- readLines(oFile, skipNul=TRUE)
+Line_Count <- append(Line_Count, length(sText))
+Word_Count <- append(Word_Count, sum(stri_count_words(sText)))
+# 1% random sample of lines
+sCorpusText <- append(sCorpusText, sText[ceiling(runif((Line_Count[1] * 0.01), 1, Line_Count[1]))])
+close(oFile)
+rm(sText)
+invisible(gc())
+
+
+# Summary
+File_Name <- c("Twitter", "Blogs", "News")
+Size_in_MB <- c(round(file.info("en_US.twitter.txt")$size/MB, 1),
+                round(file.info("en_US.blogs.txt")$size/MB, 1),
+                round(file.info("en_US.news.txt")$size/MB, 1))
+```
+
+```{r summary2, echo=FALSE, warning=FALSE}
+data.frame(File_Name, Size_in_MB, Line_Count, Word_Count)
+```
+
+## Cleaning up the data
+We load all 3 files in their entirety. After collecting summary statistics, we just get a random sample of 1% of each files (using 'runif' function) into one corpus due to performance issues. The resulting sample is cleaned up to get rid of hashtags and non-English words using simple R functions for further processing.
+
+## Features of the data
+To explore the features of the data, we do a wordcloud analysis. A wordcloud is a visual representation of text data, typically used to depict keyword metadata, or to visualize free form text. The importance of each word is shown with font size or color.This format is useful for quickly perceiving the most prominent terms and for locating a term alphabetically to determine its relative prominence.
+
+Here is a simple wordcloud.<br/><br/>
+```{r wordcloud, echo=FALSE, warning=FALSE}
+sCorpus <- gsub(" #\\S*","", sCorpusText)
+sCorpus <- gsub("[^0-9A-Za-z///' ]", "", sCorpus)
+sCorpus <- tolower(sCorpus)
+wordcloud(words = sCorpus, max.words = 150, colors=brewer.pal(8, "Dark2"), random.order = FALSE)
+```
+
+
+Next, we do an n-gram analysis. In the fields of computational linguistics and probability, an <b>n-gram</b> is a contiguous sequence of n items from a given sample of text or speech. The items can be phonemes, syllables, letters, words or base pairs according to the application. The n-grams typically are collected from a text or speech corpus.
+
+In this report, we present unigram, bigram, and trigram plots. Please see below.
+```{r ngram1, echo=FALSE, warning=FALSE, message=FALSE}
+# 1-gram
+dfmng1 <- dfm(sCorpus, ngrams = 1, verbose = TRUE, concatenator = " ", stopwords=TRUE)
+dfng1 <- as.data.frame(as.matrix(docfreq(dfmng1)))
+ng1 <- sort(rowSums(dfng1), decreasing=TRUE)
+ftng1 <- data.frame(Words=names(ng1), Frequency = ng1)
+ngplot <- ggplot(within(ftng1[1:15, ], Words <- factor(Words, levels=Words)), aes(Words, Frequency))
+ngplot <- ngplot + geom_bar(stat="identity", fill="purple") + ggtitle("Top 15 Unigrams")
+ngplot <- ngplot + theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+```{r ngram1a, echo=FALSE, warning=FALSE}
+ngplot
+```
+
+```{r ngram2, echo=FALSE, warning=FALSE, message=FALSE}
+# 2-gram
+dfmng2 <- dfm(sCorpus, ngrams = 2, verbose = TRUE, concatenator = " ", stopwords=TRUE)
+dfng2 <- as.data.frame(as.matrix(docfreq(dfmng2)))
+ng2 <- sort(rowSums(dfng2), decreasing=TRUE)
+ftng2 <- data.frame(Words=names(ng2), Frequency = ng2)
+ngplot <- ggplot(within(ftng2[1:15, ], Words <- factor(Words, levels=Words)), aes(Words, Frequency))
+ngplot <- ngplot + geom_bar(stat="identity", fill="blue") + ggtitle("Top 15 Bigrams")
+ngplot <- ngplot + theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+```{r ngram2a, echo=FALSE, warning=FALSE}
+ngplot
+```
+
+```{r ngram3, echo=FALSE, warning=FALSE, message=FALSE}
+# 3-gram
+dfmng3 <- dfm(sCorpus, ngrams = 3, verbose = TRUE, concatenator = " ", stopwords=TRUE)
+dfng3 <- as.data.frame(as.matrix(docfreq(dfmng3)))
+ng3 <- sort(rowSums(dfng3), decreasing=TRUE)
+ftng3 <- data.frame(Words=names(ng3), Frequency = ng3)
+ngplot <- ggplot(within(ftng3[1:15, ], Words <- factor(Words, levels=Words)), aes(Words, Frequency))
+ngplot <- ngplot + geom_bar(stat="identity", fill="green") + ggtitle("Top 15 Trigrams")
+ngplot <- ngplot + theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+```{r ngram3a, echo=FALSE, warning=FALSE}
+ngplot
+```
+
+## Caveats
+'tm' package gave some runtime errors on my Windows 7 setup when cleaning up the data so I had to use 'quanteda' package interchangeably. That's why you see that weird 'na' topping the unigram plot.
+
+
+## Interesting findings
+I am amazed to find out the limitations of R/R-Studio and it's in-memory (RAM) approach to storing variables of significant size. Apparently, with Windows 7 and it's 3GB RAM limitation IN VM mode, eventhough the files were totaling around 600MB, it's impossible to use popular R packages for text mining on the entire dataset. I had to sample 1% to make sure the command produced the result without erroring out. I'm not sure a Linux flavor or Mac can handle it differently, but I am going to give it a try.
+
+The result of this simple exploratory analysis shows that most popular words are stopwords (thank god there were no swearwords since swearword removal of tm package failed on my Win7 computer) and more the coverage you want the more words you should store.
+
+I'm not going to blame it on R but no search engine and R-Doc is of good help in this scenario. It seems that code parallelization in R should be one of the most important aspect when working with real-life scenarios.
+
+
+## Next Steps
+The next step is to create a prediction algorithm based on the files. One of those steps would be to look at the bigram and trigam data and develop an algorithm to find out the liklihood of the next words and suggesting the word with the strongest liklihood. This should be relatively easy to replicate by exporting the bigram and trigram data to a file where it can be re-used in the shiny app.
+
+
+## To evaluators
+I'm in the process of building a new Ubuntu setup hoping the issues I encountered won't happen again. I think you understand my situation and appreciate the time I spent to figure out the issue and not ding my grade  for this uncontrollable scenario. Your valuable feedback is much appreciated.

@@ -1,0 +1,25 @@
+---
+title: "R Markdown and Leaflet"
+author: "Vijay Ramanujam"
+date: "February 20, 2018"
+output:
+  html_document: default
+---
+
+### Introduction
+The idea is to create a web page using R Markdown that features a map created with Leaflet. The resulting HTML is hosted on RPubs.<br/><br/>
+
+#### Data gathering
+Since I'm from Cleveland, OH, I decided to plot all Cuyahoga Valley Metroparks locations on the map. The data was downloaded manually from https://www.nps.gov/cuva/planyourvisit/park-addresses.htm. After cleaning up, it's been uploaded to https://raw.githubusercontent.com/vxrds/DataScience-JohnsHopkinsUniversity/master/09_DevelopingDataProducts/CLEParks1.csv.
+
+```{r map}
+library(leaflet)
+
+dfParks <- read.csv("https://raw.githubusercontent.com/vxrds/DataScience-JohnsHopkinsUniversity/master/09_DevelopingDataProducts/CLEParks1.csv")
+
+my_map <- leaflet() %>% addTiles()
+my_map <- addMarkers(my_map, lat=dfParks$Park.Lat, lng=dfParks$Park.Lng, 
+                     popup=paste(dfParks$Park.Name, dfParks$Park.Address))
+
+my_map
+```

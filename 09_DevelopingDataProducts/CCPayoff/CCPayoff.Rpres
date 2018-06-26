@@ -1,0 +1,109 @@
+Credit Card Payoff Calculator Using Shiny
+========================================================
+author: Vijay Ramanujam
+date: February 23, 2018
+autosize: true
+
+<style>
+.small-code pre code {
+  font-size: 1em;
+}
+</style>
+Introduction
+========================================================
+Credit card issuers are required to collect payments that pays down a borrower's principal over a reasonable period of time. Most issuers charge 1% of the principal amount, plus the monthly interest, plus any fees. There are a lot of online calculators that give you fixed payment amount every month once you specify the number of months to payoff the debt.
+
+This Shiny app calculator differs from the above by giving you the absolute minimum payment amount needed to avoid any penalty by the card issuer, and the number of months needed to payoff the balance by fulfilling the issuer's conditions. This will be handy for people that can't guarantee to pay a fixed amount for a fixed number of months.
+
+Information Required
+========================================================
+The following information is needed for this app to function.
+
+- <b>Current Balance: $ (p)</b> - Total owed to the credit card company
+- <b>Interest Rate: % (i)</b> - Current APR for your balance
+- <b>Minimum Payment: $</b> - Interest accrued during the billing cycle plus a % of the remaining balance
+- <b>Fixed Payment on Low Balance: $ (m)</b> - Fixed amount of payment when the monthly payment falls below this number
+- <b>Additional Monthly Payment: $ (a)</b> - Amount to pay on top of the required monthly payment
+
+The formula to calculate the monthly minimum payment - <b>p*(i/12/100) + p*(m/100) + a</b>
+
+Payoff Table
+========================================================
+class: small-code
+<font size="5">
+Some part of the code is hidden, since the monthly payment calculation logic is over 50 lines.
+</font>
+
+```{r}
+nPrincipal <- 5000 #(p)
+nInterest <- 7.99 #(i)
+sMinimum <- 1 #(m)
+nFixed <- 25
+nAdditional <- 20 #(a)
+aTable <- NULL
+```
+```{r echo=FALSE}
+setwd('Z:/F/Data Science/Coursera/Johns Hopkins - Data Science/9. Developing Data Products/W4/CCPayoff')
+bDone <- FALSE
+nPayments <- 0
+nPrincipal2 <- 0.00
+nInterest2 <- 0.00
+nPrincipalPaid <- 0.00
+nInterestPaid <- 0.00
+nPrincipalRemaining <- nPrincipal
+nMinimum <- 1
+
+while (bDone == FALSE)
+{
+    nPrincipal2 <- round(nPrincipalRemaining * (nMinimum / 100), 2)
+    nInterest2 <- round(nPrincipalRemaining * (nInterest / 100 / 12), 2)
+    
+    if ((nPrincipal2 + nAdditional) < nPrincipalRemaining)
+    {
+        nPrincipal2 <- nPrincipal2 + nAdditional
+    }
+    
+    if ((nPrincipal2 + nInterest2) < nFixed)
+    {
+        if ((nPrincipal2 + nInterest2) < nPrincipalRemaining)
+        {
+            if (nPrincipalRemaining > nFixed)
+            {
+                nPrincipal2 <- nFixed - nInterest2
+            }
+            else
+            {
+                nPrincipal2 <- nPrincipalRemaining
+            }
+        }
+    }
+    
+    nPayments <- round((nPayments + 1), 0)
+    nPrincipalPaid <- nPrincipalPaid + nPrincipal2
+    nInterestPaid <- nInterestPaid + nInterest2
+    nPrincipalRemaining <- nPrincipalRemaining - nPrincipal2
+    
+    aTable <- rbind(aTable, c(nPayments, (nPrincipal2 + nInterest2), nPrincipal2, nInterest2, 
+                              nPrincipalPaid, nInterestPaid, nPrincipalRemaining))
+    colnames(aTable) <- c("Month", "Payment", "Principal", "Interest", 
+                          "Principal.Paid", "Interest.Paid", "Remaining.Balance")
+    
+    if (nPrincipalRemaining < 0.01)
+    {
+        bDone = TRUE
+    }
+}
+```
+```{r}
+head(as.data.frame(aTable))
+```
+</span>
+
+Shiny App Screenshot
+========================================================
+![Screenshot] (./CCPayoff-figure/CCPayoff.png)
+<font size="5">
+Shiny app hosted at <https://vxrds.shinyapps.io/CCPayoffCalculator>
+
+All source code and supporting documentation located at <https://github.com/vxrds/vxrds.github.io/tree/master/JHU%20-%20Data%20Science/09_DevelopingDataProducts/Week4>
+</font>

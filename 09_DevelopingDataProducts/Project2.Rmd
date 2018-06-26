@@ -1,0 +1,40 @@
+---
+title: "R Markdown Presentation & Plotly"
+author: "Vijay Ramanujam"
+date: "February 21, 2018"
+output:
+  ioslides_presentation: default
+  slidy_presentation: default
+---
+
+
+## Data collection
+
+In the next slide, we are going to see violent crimes trend in the top 6 California local police departments (excluding LA). The data has been downloaded from <https://www.ucrdatatool.gov> for the years between 1985 and 2014.
+
+### Plotly
+```{r plot1, message=FALSE, eval=FALSE}
+library(plotly)
+df <- read.csv("CA_VC.csv", header = TRUE)
+plot_ly(df, x = df$Year, y = df$VC, mode = "lines", color = df$PD) %>% 
+      layout(xaxis = list(title = 'Year'),
+         yaxis = list(title = 'Count'),
+         legend = list(x = 0.80, y = 0.90))
+```
+
+##
+<center>Violent Crimes Trend in CA</center>
+```{r plot2, message=FALSE, echo=FALSE}
+library(plotly)
+df <- read.csv("CA_VC.csv", header = TRUE)
+plot_ly(df, x = df$Year, y = df$VC, mode = "lines", color = df$PD) %>% 
+      layout(xaxis = list(title = 'Year'),
+         yaxis = list(title = 'Count'),
+         title = list(title = 'Violent Crime by Year'),
+         legend = list(x = 0.80, y = 0.90))
+```
+
+
+##
+<br/><br/><br/><br/><br/><br/><br/>
+<center><h1>The End</h1></center>

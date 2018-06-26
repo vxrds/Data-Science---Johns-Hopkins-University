@@ -1,0 +1,224 @@
+---
+title: "Basic Inferential Data Analysis"
+author: "Vijay Ramanujam"
+date: "January 5, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br/>
+
+#### **Overview**
+
+Now in the second portion of the project, we're going to analyze the ToothGrowth data in the R datasets package. The dataset contains the effect of vitamin C on tooth growth in guinea pigs. The response is the length of odontoblasts (cells responsible for tooth growth) in 60 guinea pigs. Each animal received one of three dose levels of vitamin C (0.5, 1, and 2 mg/day) by one of two delivery methods, (orange juice or ascorbic acid (a form of vitamin C and coded as VC).
+<br/>
+<br/>
+
+**Format**
+
+A data frame with 60 observations on 3 variables.
+
+[,1]	len	    numeric	Tooth length
+<br/>
+
+[,2]	supp	factor	Supplement type (VC or OJ)
+<br/>
+
+[,3]	dose	numeric	Dose in milligrams/day
+<br/>
+<br/>
+
+
+**Load dependent libraries and dataset**
+```{r load_data, message=FALSE, warning=FALSE}
+library(dplyr)
+library(knitr)
+library(printr)
+library(datasets)
+
+data(ToothGrowth)
+```
+<br/>
+
+**Structure of the dataset**
+```{r structure}
+str(ToothGrowth)
+```
+<br/>
+
+**Top rows**
+```{r head}
+head(ToothGrowth)
+```
+<br/>
+<br/>
+<br/>
+<br/>
+
+**Observations by supplement type/dosage**
+```{r display1}
+table(ToothGrowth$supp, as.factor(ToothGrowth$dose))
+```
+<br/>
+
+#### **Basic Summary Statistics**
+```{r summary}
+summary(ToothGrowth)
+```
+<br/>
+<br/>
+
+**Summary by supplement type**
+```{r summary2}
+kable(as.data.frame(summarise(
+                        group_by(ToothGrowth, supp)
+                        , count= n()
+                        , mean=mean(len)
+                        , median=median(len)
+                        , "sd" = sd(len)
+                    )
+    ), digits=3, align='c'
+)
+```
+<br/>
+
+**Summary by supplement type and dosage**
+```{r summary3}
+kable(as.data.frame(summarise(
+                        group_by(ToothGrowth, supp, dose)
+                        , count= n()
+                        , mean=mean(len)
+                        , median=median(len)
+                        , "sd" = sd(len)
+                    )
+    ), digits=3, align='c'
+)
+```
+<br/>
+
+**Average tooth growth by supplement type/dosage**
+```{r mean}
+aggregate(len ~ supp + dose, FUN=mean, data=ToothGrowth)
+```
+<br/>
+
+As shown above, the average tooth growth increases as the dosages increase with both supplement types. Also, the tooth growth is larger with orange juice at dosage levels 0.5mg/day and 1mg/day, and it is almost the same between the supplements at dosage level 2mg/day.
+<br/>
+<br/>
+
+**Plot the dataset**
+```{r plot}
+library(ggplot2)
+
+plot <- ggplot(
+    ToothGrowth
+    , aes(x=factor(dose), y=len, fill=factor(dose))
+)
+
+plot <- plot + 
+    geom_boxplot(notch=F) + 
+    facet_grid(.~supp, labeller = as_labeller(
+        c("OJ" = "Orange Juice", "VC" = "Ascorbic Acid"))) + 
+    scale_x_discrete("Dosage (mg/day)") + 
+    scale_y_continuous("Tooth Growth") + 
+    ggtitle("\nEffect of Supplement Type/Dosage") + 
+    scale_fill_discrete(name = "Dosage in mg/day")
+
+plot
+```
+<br/>
+<br/>
+
+#### **Hypothesis Testing**
+**Testing by supplement type**
+```{r htest1}
+ttest <- t.test(len ~ supp
+                , data=ToothGrowth
+                , var.equal = FALSE
+                , paired=FALSE
+                , conf.level = .95)
+
+kable(data.frame(
+        "t_statistic"  = ttest$statistic
+        , "DF" = ttest$parameter
+        , "p_value"  = ttest$p.value
+        , "CL_Lower" = ttest$conf.int[1]
+        , "CL_Upper" = ttest$conf.int[2]
+        , "OJ_Mean" = ttest$estimate[1]
+        , "VC_Mean" = ttest$estimate[2]
+        , row.names = "OJ versus VC "
+), digits = 3, align = 'c'
+    , caption = '<br/><br/><br/>Summary of two sample t-test for tooth growth by supplement type')
+```
+<br/>
+
+From the above summary, with 95% confidence (alpha=0.05), we are unable to reject the null hypothesis i.e. there is no significant difference in tooth growth between suppplement types in guniea pigs since the p-value (0.061) is greater than alpha (0.05). It means, we do not have sufficient statistical evidence to show that there is a significant difference in the average tooth growth between supplement types. This can also be verified by the lower and upper levels of confidence interval which contains 0 (no difference).
+<br/>
+<br/>
+<br/>
+
+**Testing by supplement type and dosage levels**
+```{r htest2}
+ttest05 <- t.test(len ~ supp
+                  , data=filter(ToothGrowth, dose==0.5)
+                  , var.equal = FALSE
+                  , paired=FALSE
+                  , conf.level = .95)
+
+
+ttest10 <- t.test(len ~ supp
+                  , data=filter(ToothGrowth, dose==1)
+                  , var.equal = FALSE
+                  , paired=FALSE
+                  , conf.level = .95)
+
+ttest20 <- t.test(len ~ supp
+                  , data=filter(ToothGrowth, dose==2)
+                  , var.equal = FALSE
+                  , paired=FALSE
+                  , conf.level = .95)
+
+
+kable(data.frame(
+        "t_statistic" = c(ttest05$statistic, ttest10$statistic, ttest20$statistic)
+        , "DF" = c(ttest05$parameter, ttest10$parameter, ttest20$parameter)
+        , "p_value" = c(ttest05$p.value, ttest10$p.value, ttest20$p.value)
+        , "CL_Lower" = c(ttest05$conf.int[1], ttest10$conf.int[1], ttest20$conf.int[1])
+        , "CL_Upper" = c(ttest05$conf.int[2], ttest10$conf.int[2], ttest20$conf.int[2])
+        , "OJ_Mean" = c(ttest05$estimate[1], ttest10$estimate[1], ttest20$estimate[1])
+        , "VC_Mean" = c(ttest05$estimate[2], ttest10$estimate[2], ttest20$estimate[2])
+        , row.names = c(
+            "OJ versus VC @ 0.5mg/day"
+            , "OJ versus VC @ 1mg/day"
+            , "OJ versus VC @ 2mg/day")
+), digits = 3, align = 'c'
+    , caption = 'Summary of two sample t-test for tooth growth by supplement type and dosage')
+```
+<br/>
+
+
+From the above summary, with 95% confidence, there is statistical evidence to believe that the average tooth growth of guinea pigs differ between supplement types at dosage levels 0.5mg/day and 1mg/day whereas, there is no such evidence when it comes to 2mg/day since the p-value (0.964) is greater than alpha (0.05) and the confidence interval contains 0.
+<br/>
+<br/>
+<br/>
+
+
+#### **Assumptions**
+    * Random samples of guinea pigs, but guinea pigs are similar as a population
+    * Variances between different samples are not equivalent
+    * The observations are not paired; groups of guinea pigs that are 
+    given OJ and VC are different samples
+    * The null hypothesis is: there is no significant difference of 
+    average tooth growth in guinea pigs samples that are given OJ and VC
+    * Confidence level is 95% (alpha = 0.05)
+
+<br/>
+<br/>
+
+#### **Conclusion**
+Based on the analyses performed in the above sections, we can conclude that the average tooth growth is larger with orange juice at dosage levels 0.5mg/day and 1mg/day. But, the difference in average tooth growth is uncertain at dosage level of 2mg/day between OJ and VC.
